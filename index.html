@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Will you be my Valentine? 💖</title>
+    <link rel="stylesheet" href="styles.css">
+</head> 
+<body>
+    <div class="container">
+        <div class="card">
+            <h1 id="title" class="title">Will you be my Valentine?</h1>
+            <p id="subtitle" class="subtitle">I've been thinking about you... and I'd love to spend this special day with you! 💕</p>
+            
+            <div class="gif-container">
+                <img id="gif" src="" alt="Cute romantic GIF" class="gif" />
+                <div class="gif-loading" id="gifLoading">Loading a cute GIF for you... 💖</div>
+            </div>
+            
+            <p id="hintText" class="hint-text"></p>
+            
+            <div class="buttons-container">
+                <button id="yesBtn" class="btn btn-primary" aria-label="Yes, I'll be your Valentine">
+                    Yes 💖
+                </button>
+                <button id="noBtn" class="btn btn-secondary" aria-label="No">
+                    No 🙃
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="confetti-container" class="confetti-container" aria-live="polite" aria-atomic="true"></div>
+    
+    <script src="script.js"></script>
+</body>
+</html>
+

@@ -1,0 +1,25 @@
+{
+  "name": "valentine-proposal-website",
+  "version": "1.0.0",
+  "description": "A cute interactive Valentine website with GIFs from GIPHY API",
+  "scripts": {
+    "build": "node build.js",
+    "setup": "node build.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "serve": "npx http-server . -p 8080 -o",
+    "start": "npm run build && npm run serve"
+  },
+  "keywords": [
+    "valentine",
+    "proposal",
+    "giphy",
+    "interactive"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0"
+  }
+}
