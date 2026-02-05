@@ -53,7 +53,7 @@ describe('Valentine Proposal Website', () => {
 
             // Simulate fetchGif function
             const query = 'cute love cartoon';
-            const apiKey = 'Z4bth111x8cdiFPQRr2QyVPUZsQCh1XK';
+            const apiKey = 'YOUR_GIPHY_API_KEY';
             const url = `https://api.giphy.com/v1/gifs/search?api_key=${apiKey}&q=${encodeURIComponent(query)}&limit=10&rating=g`;
             
             const response = await fetch(url);

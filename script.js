@@ -9,8 +9,10 @@ const state = {
     accepted: false
 };
 
-// Track active image load timeout
+// Track active image load timeout & requests (for rapid taps / slow mobile)
 let currentImageTimeout = null;
+let currentGifRequestId = 0;
+const MAX_GIF_RETRY_ATTEMPTS = 2;
 
 // No button sequence configuration
 const noButtonSequence = [
@@ -49,161 +51,149 @@ const elements = {
 };
 
 // Fetch GIF from GIPHY API
-async function fetchGif(query) {
-    try {
-        // Clear any existing timeout
-        if (currentImageTimeout) {
-            clearTimeout(currentImageTimeout);
-            currentImageTimeout = null;
-        }
-        
-        // Reset image handlers to prevent conflicts
-        elements.gif.onload = null;
-        elements.gif.onerror = null;
-        
-        elements.gifLoading.style.display = 'block';
+async function fetchGif(query, attempt = 1) {
+    // Mobile-friendly: handle offline state first
+    if (!navigator.onLine) {
         elements.gif.style.display = 'none';
         elements.gif.classList.remove('show');
-        elements.gifLoading.textContent = 'Loading a cute GIF for you... 💖';
-        
+        elements.gifLoading.style.display = 'block';
+        elements.gifLoading.textContent = 'Looks like you\'re offline 💔 Try again when you\'re back online.';
+        return;
+    }
+
+    const requestId = ++currentGifRequestId;
+
+    // Clear any existing timeout
+    if (currentImageTimeout) {
+        clearTimeout(currentImageTimeout);
+        currentImageTimeout = null;
+    }
+
+    elements.gifLoading.style.display = 'block';
+    elements.gif.style.display = 'none';
+    elements.gif.classList.remove('show');
+    elements.gifLoading.textContent = 'Loading a cute GIF for you... 💖';
+
+    try {
         const url = `${GIPHY_BASE_URL}?api_key=${GIPHY_API_KEY}&q=${encodeURIComponent(query)}&limit=10&rating=g`;
         console.log('Fetching GIF from:', url.replace(GIPHY_API_KEY, 'API_KEY_HIDDEN'));
-        
+
         const response = await fetch(url);
-        
+
         if (!response.ok) {
             const errorText = await response.text();
             console.error('API Response Error:', response.status, response.statusText, errorText);
             throw new Error(`API Error: ${response.status} ${response.statusText}`);
         }
-        
+
         const data = await response.json();
-        console.log('GIPHY API Response:', data);
-        
+
         if (data.meta && data.meta.status !== 200) {
             throw new Error(`GIPHY API Error: ${data.meta.msg || 'Unknown error'}`);
         }
-        
-        if (data.data && data.data.length > 0) {
-            // Randomly select a GIF from the results
-            const randomIndex = Math.floor(Math.random() * data.data.length);
-            const gifData = data.data[randomIndex];
-            
-            // Try to use a smaller size first for faster loading, fallback to original
-            const gifUrl = gifData.images.fixed_height?.url || 
-                          gifData.images.downsized?.url || 
-                          gifData.images.original.url;
-            const altText = gifData.title || 'Cute romantic GIF';
-            
-            console.log('Selected GIF URL:', gifUrl);
-            console.log('GIF dimensions:', {
-                original: gifData.images.original?.width + 'x' + gifData.images.original?.height,
-                fixed_height: gifData.images.fixed_height?.width + 'x' + gifData.images.fixed_height?.height
-            });
-            
-            // Set up image load handlers BEFORE setting src (in case image is cached)
-            let imageLoaded = false;
-            
-            const showGif = () => {
-                if (imageLoaded) return; // Prevent double execution
-                imageLoaded = true;
-                
-                if (currentImageTimeout) {
-                    clearTimeout(currentImageTimeout);
-                    currentImageTimeout = null;
-                }
-                
-                elements.gifLoading.style.display = 'none';
-                elements.gif.style.display = 'block'; // Explicitly set to block to override inline style
-                elements.gif.classList.add('show');
-                console.log('GIF loaded successfully!');
-            };
-            
-            const handleError = () => {
-                if (imageLoaded) return; // Prevent double execution
-                imageLoaded = true;
-                
-                if (currentImageTimeout) {
-                    clearTimeout(currentImageTimeout);
-                    currentImageTimeout = null;
-                }
-                
-                console.error('Failed to load GIF image');
-                elements.gifLoading.textContent = 'Could not load GIF image, but the love is still real! 💖';
-            };
-            
-            // Set timeout (reduced to 5 seconds)
-            currentImageTimeout = setTimeout(() => {
-                if (!imageLoaded) {
-                    console.error('Image load timeout after 5 seconds');
-                    imageLoaded = true;
-                    elements.gifLoading.textContent = 'GIF is taking too long to load. Try again! 💖';
-                    // Try to load anyway if it's still loading
-                    setTimeout(() => {
-                        if (elements.gif.complete && elements.gif.naturalHeight !== 0) {
-                            showGif();
-                        }
-                    }, 500);
-                }
-            }, 5000); // 5 second timeout
-            
-            // Set handlers first (before setting src)
-            elements.gif.onload = showGif;
-            elements.gif.onerror = (e) => {
-                console.error('Image error event:', e);
-                console.error('Failed URL:', gifUrl);
-                console.error('Image src:', elements.gif.src);
-                console.error('Image complete:', elements.gif.complete);
-                console.error('Image naturalWidth:', elements.gif.naturalWidth);
-                console.error('Image naturalHeight:', elements.gif.naturalHeight);
-                handleError();
-            };
-            
-            // Set the image source (this triggers loading)
-            elements.gif.alt = altText;
-            
-            // Remove crossOrigin - GIPHY images don't need it and it might cause issues
-            elements.gif.removeAttribute('crossOrigin');
-            
-            // Simple approach: just set the src directly
-            // If it's the same URL, we need to clear it first
-            if (elements.gif.src === gifUrl) {
-                // Force reload by clearing and resetting
-                const tempSrc = gifUrl;
-                elements.gif.src = '';
-                elements.gif.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'; // 1x1 transparent gif
-                setTimeout(() => {
-                    elements.gif.src = tempSrc;
-                }, 50);
-            } else {
-                elements.gif.src = gifUrl;
-            }
-            
-            // Check if image is already loaded (cached) after a brief moment
-            setTimeout(() => {
-                if (elements.gif.complete && elements.gif.naturalHeight !== 0 && !imageLoaded) {
-                    console.log('GIF already loaded from cache');
-                    showGif();
-                }
-            }, 200);
-        } else {
+
+        if (!data.data || data.data.length === 0) {
             throw new Error('No GIFs found in API response');
         }
+
+        // Randomly select a GIF from the results
+        const randomIndex = Math.floor(Math.random() * data.data.length);
+        const gifData = data.data[randomIndex];
+
+        // Use a smaller size first for faster loading on mobile, fallback to original
+        const gifUrl =
+            (gifData.images.fixed_height_small && gifData.images.fixed_height_small.url) ||
+            (gifData.images.fixed_height && gifData.images.fixed_height.url) ||
+            (gifData.images.downsized && gifData.images.downsized.url) ||
+            gifData.images.original.url;
+
+        const altText = gifData.title || 'Cute romantic GIF';
+
+        console.log('Selected GIF URL:', gifUrl);
+
+        // Use a separate Image object to load, then swap into the DOM image.
+        const loaderImage = new Image();
+        let imageHandled = false;
+
+        const cleanupAndIgnoreIfStale = () => {
+            if (currentImageTimeout) {
+                clearTimeout(currentImageTimeout);
+                currentImageTimeout = null;
+            }
+            // Ignore if a newer request has started (user tapped quickly)
+            return requestId !== currentGifRequestId;
+        };
+
+        loaderImage.onload = () => {
+            if (imageHandled) return;
+            imageHandled = true;
+            if (cleanupAndIgnoreIfStale()) return;
+
+            elements.gif.src = loaderImage.src;
+            elements.gif.alt = altText;
+            elements.gifLoading.style.display = 'none';
+            elements.gif.style.display = 'block';
+            elements.gif.classList.add('show');
+            console.log('GIF loaded successfully!');
+        };
+
+        loaderImage.onerror = () => {
+            if (imageHandled) return;
+            imageHandled = true;
+            if (cleanupAndIgnoreIfStale()) return;
+
+            console.error('Failed to load GIF image');
+
+            if (attempt < MAX_GIF_RETRY_ATTEMPTS) {
+                console.log(`Retrying GIF load (attempt ${attempt + 1})...`);
+                fetchGif(query, attempt + 1);
+                return;
+            }
+
+            elements.gif.style.display = 'none';
+            elements.gif.classList.remove('show');
+            elements.gifLoading.style.display = 'block';
+            elements.gifLoading.textContent = 'Could not load GIF image, but the love is still real! 💖';
+        };
+
+        // Mobile: shorter timeout but with one retry
+        currentImageTimeout = setTimeout(() => {
+            if (imageHandled || requestId !== currentGifRequestId) {
+                return;
+            }
+
+            console.warn('GIF image load timeout');
+            if (attempt < MAX_GIF_RETRY_ATTEMPTS) {
+                imageHandled = true;
+                fetchGif(query, attempt + 1);
+            } else {
+                elements.gif.style.display = 'none';
+                elements.gif.classList.remove('show');
+                elements.gifLoading.style.display = 'block';
+                elements.gifLoading.textContent = 'GIF is taking too long to load on your connection 💞 You can still answer below.';
+            }
+        }, 7000); // 7 second timeout
+
+        loaderImage.src = gifUrl;
     } catch (error) {
-        // Clear timeout on error
         if (currentImageTimeout) {
             clearTimeout(currentImageTimeout);
             currentImageTimeout = null;
         }
-        
+
         console.error('Error fetching GIF:', error);
-        console.error('Error details:', {
-            message: error.message,
-            stack: error.stack,
-            name: error.name
-        });
-        elements.gifLoading.textContent = `Could not load GIF: ${error.message}. But the love is still real! 💖`;
-        // You could set a fallback image here
+
+        let friendlyMessage = 'Something went wrong loading the GIF, but the love is still real! 💖';
+        if (error.message && error.message.includes('API Error')) {
+            friendlyMessage = 'The GIF service is a bit overwhelmed right now 💔 Please try again in a moment.';
+        } else if (error.message && error.message.includes('No GIFs')) {
+            friendlyMessage = 'Could not find a GIF for that, but I\'m still thinking of you 💕';
+        }
+
+        elements.gif.style.display = 'none';
+        elements.gif.classList.remove('show');
+        elements.gifLoading.style.display = 'block';
+        elements.gifLoading.textContent = friendlyMessage;
     }
 }
 
