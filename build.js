@@ -1,16 +1,20 @@
 const fs = require('fs');
 const path = require('path');
 
-// Read .env file
+// Resolve API key from environment or .env file (for local dev)
 const envPath = path.join(__dirname, '.env');
-let apiKey = 'YOUR_GIPHY_API_KEY';
+let apiKey = process.env.GIPHY_API_KEY || 'YOUR_GIPHY_API_KEY';
 
-if (fs.existsSync(envPath)) {
+if (!process.env.GIPHY_API_KEY && fs.existsSync(envPath)) {
     const envContent = fs.readFileSync(envPath, 'utf8');
     const match = envContent.match(/GIPHY_API_KEY=(.+)/);
     if (match && match[1] && match[1].trim() !== 'YOUR_GIPHY_API_KEY') {
         apiKey = match[1].trim();
     }
+}
+
+if (!apiKey || apiKey === 'YOUR_GIPHY_API_KEY') {
+    console.warn('⚠️  GIPHY_API_KEY is not set. The placeholder will remain in script.js.');
 }
 
 // Read script.js

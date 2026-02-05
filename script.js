@@ -1,6 +1,6 @@
 // GIPHY API Configuration
-// This will be replaced by build.js from .env file
-const GIPHY_API_KEY = 'Z4bth111x8cdiFPQRr2QyVPUZsQCh1XK';
+// This placeholder will be replaced by build.js from environment/.env at build time
+const GIPHY_API_KEY = 'YOUR_GIPHY_API_KEY';
 const GIPHY_BASE_URL = 'https://api.giphy.com/v1/gifs/search';
 
 // State management
